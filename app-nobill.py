@@ -18,6 +18,7 @@ GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 APP_NAME = "FroyoAgentOS"
 USER = "default_user"
 MODEL = os.getenv("MODEL", "gemini-2.5-flash")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 app = Flask(__name__)
 
