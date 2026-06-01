@@ -16,6 +16,7 @@ APP_NAME = "FroyoAgentOS"
 USER = "default_user"
 MODEL = os.getenv("MODEL", "gemini-2.5-flash")
 TOOLBOX_URL = os.getenv("MCP_TOOLBOX_SERVER_URL", "")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 app = Flask(__name__)
 
