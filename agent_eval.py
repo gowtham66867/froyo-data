@@ -9,6 +9,7 @@ from vertexai.evaluation import EvalTask
 load_dotenv()
 PROJECT_ID = os.getenv("PROJECT_ID")
 TOOLBOX_URL = os.getenv("MCP_TOOLBOX_SERVER_URL")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Initialize Vertex AI
 vertexai.init(project=PROJECT_ID, location="us-central1")
