@@ -1,50 +1,75 @@
-# tools.yaml
 sources:
-    alloydb-source:
-        kind: "alloydb-postgres"
-        project: "eastern-map-498917-i6"
-        region: "us-east1"
-        cluster: "froyo-cluster"
-        instance: "froyo-instance"
-        database: "postgres"
-        user: "postgres"
-        password: "REPLACE_WITH_ALLOYDB_PASSWORD"
-        ipType: "private"
+  # Analytical store: BigQuery dataset froyo_data (product / ingredient / allergen tables)
+  bq-source:
+    kind: "bigquery"
+    project: "eastern-map-498917-i6"
+    location: "us-central1"
+  # Transactional store: AlloyDB for PostgreSQL (live_orders)
+  alloydb-source:
+    kind: "alloydb-postgres"
+    project: "eastern-map-498917-i6"
+    region: "us-east1"
+    cluster: "froyo-cluster"
+    instance: "froyo-instance"
+    database: "postgres"
+    user: "postgres"
+    password: "__ALLOYDB_PW__"   # injected at deploy time; never commit a real password
+    ipType: "private"
 
 tools:
+  # READ path -> BigQuery (analytical)
   check_allergens:
-    kind: postgres-sql
-    source: alloydb-source
-    description: Queries the federated BigQuery tables to find allergens for a product.
+    kind: bigquery-sql
+    source: bq-source
+    description: Finds allergens present in a Froyo product by name.
     statement: |
-      SELECT a.allergen_name
-      FROM consistsof c
-      INNER JOIN product p ON c.product_id = p.product_id
-      INNER JOIN ingredient i ON c.ingredient_id = i.ingredient_name
-      INNER JOIN containsallergen a ON i.ingredient_id = a.ingredient_id
-      WHERE UPPER(p.product_name) LIKE UPPER($1)
+      SELECT DISTINCT a.allergen_name
+      FROM `eastern-map-498917-i6.froyo_data.consistsof` c
+      JOIN `eastern-map-498917-i6.froyo_data.product` p
+        ON c.product_id = p.product_id
+      JOIN `eastern-map-498917-i6.froyo_data.containsallergen` a
+        ON c.ingredient_id = a.ingredient_id
+      WHERE UPPER(p.product_name) LIKE UPPER(@product_name)
     parameters:
       - name: product_name
         type: string
-        description: The name of the product to check. (e.g., '%Midnight%')
+        description: Product name pattern, e.g. '%Hazelnut%'
 
+  # WRITE path -> AlloyDB (transactional)
   place_order:
     kind: postgres-sql
     source: alloydb-source
-    description: Inserts a new live transaction into the native AlloyDB orders table.
+    description: Records a new customer order in the live_orders table.
     statement: |
       INSERT INTO live_orders (customer_name, product_id, quantity)
-      VALUES ($1, (SELECT product_id FROM product WHERE product_name ILIKE '%' || $2 || '%' LIMIT 1), $3) RETURNING order_id;
+      VALUES ($1, $2, $3)
+      RETURNING order_id;
     parameters:
       - name: customer_name
         type: string
-        description: The name of the customer placing the order.
+        description: The customer's name.
       - name: product_name
         type: string
-        description: The name of the product being ordered.
+        description: The product name, e.g. 'Pure Hazelnut Halo'.
       - name: quantity
         type: integer
-        description: The quantity of the product being ordered.
+        description: Number of units ordered.
+
+  # One-time DDL helper (kept out of the agent's toolset)
+  init_orders:
+    kind: postgres-sql
+    source: alloydb-source
+    description: One-time setup of the live_orders table.
+    statement: |
+      CREATE TABLE IF NOT EXISTS live_orders (
+        order_id SERIAL PRIMARY KEY,
+        customer_name VARCHAR(100),
+        product_id VARCHAR(100),
+        quantity INT,
+        order_status VARCHAR(50) DEFAULT 'Pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    parameters: []
 
 toolsets:
   alloydb_tools:

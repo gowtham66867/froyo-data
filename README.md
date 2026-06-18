@@ -1,85 +1,68 @@
 # Project Pioneer: FroyoOS Store Manager
 
-FroyoOS Store Manager is an agentic operations assistant for a frozen yogurt store. It uses Google ADK for agent orchestration, MCP Toolbox for database tools, AlloyDB for transactional orders, and BigQuery federation through AlloyDB for analytical product/allergen data.
+FroyoOS Store Manager is an agentic operations assistant for a frozen-yogurt store. It uses
+**Google ADK** for agent orchestration, **MCP Toolbox for Databases** for declarative tool access,
+**BigQuery** for analytical product/allergen lookups, and **AlloyDB for PostgreSQL** for live
+transactional orders — a true **HTAP** split behind a single conversational agent.
 
-The demo shows a store manager asking natural-language questions such as:
+The store manager asks natural-language questions such as:
 
-- "Does Midnight Swirl have any allergens?"
-- "Order 2 Midnight Swirl for Alice."
-
-The agent routes those requests to tools, checks product/allergen relationships, and records live orders.
+- "Does Pure Hazelnut Halo have any allergens?" → reads from **BigQuery**
+- "Order 2 Pure Hazelnut Halo for Alice." → writes to **AlloyDB**
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  UI["Flask Web UI"] --> Agent["Google ADK Agent"]
-  Agent --> Toolbox["MCP Toolbox on Cloud Run"]
-  Toolbox --> AlloyDB["AlloyDB PostgreSQL"]
-  AlloyDB --> Orders["live_orders table"]
-  AlloyDB --> BQ["Federated BigQuery froyo_data tables"]
+  UI["Flask Web UI"] --> Agent["Google ADK Agent<br/>(Gemini 2.5 Flash via Vertex AI)"]
+  Agent --> Toolbox["MCP Toolbox<br/>(Cloud Run, us-east1)"]
+  Toolbox -->|check_allergens| BQ["BigQuery<br/>froyo_data (analytical)"]
+  Toolbox -->|place_order| AlloyDB["AlloyDB PostgreSQL<br/>live_orders (transactional)"]
 ```
+
+- The Toolbox runs on **Cloud Run** and reaches AlloyDB's **private IP** via **Direct VPC egress**
+  into the `default` network.
+- Its `tools.yaml` is stored in **Secret Manager** and mounted at runtime.
+- The Toolbox is **private** (org policy blocks public Cloud Run); the agent connects through an
+  authenticated `gcloud run services proxy`.
 
 ## Google Cloud / Google AI components
 
-- Google ADK for agent orchestration
-- Gemini model via Google GenAI
-- MCP Toolbox for declarative database tool access
-- Cloud Run for Toolbox deployment
-- Secret Manager for Toolbox configuration
-- AlloyDB for PostgreSQL transactional storage
-- BigQuery federation through AlloyDB for analytical data
+- Google ADK (agent orchestration)
+- Gemini 2.5 Flash via **Vertex AI** (no API key — uses Application Default Credentials)
+- MCP Toolbox for Databases (`bigquery` + `alloydb-postgres` sources)
+- Cloud Run (Toolbox hosting, Direct VPC egress)
+- Secret Manager (Toolbox config)
+- AlloyDB for PostgreSQL (transactional `live_orders`)
+- BigQuery (analytical `froyo_data` dataset)
+- Flask (web UI)
 
 ## Repo layout
 
-- `app.py` - cloud-backed app using MCP Toolbox and AlloyDB
-- `app-nobill.py` - local fallback using CSV files
-- `agent_eval.py` - cloud/toolbox evaluation workflow
-- `agent_eval_nobill.py` - local fallback evaluation workflow
-- `templates/index.html` - web UI
-- `tools.yaml` - safe template for MCP Toolbox tools
-- `.env.example` - local environment template
-- `PROJECT_PIONEER_SETUP.md` - step-by-step setup notes
-- `SUBMISSION.md` - Google submission summary
+- `app.py` — agent app using MCP Toolbox (BigQuery + AlloyDB)
+- `app-nobill.py` — local CSV fallback (no cloud)
+- `templates/index.html` — web UI
+- `tools.yaml` — MCP Toolbox tool definitions (password is injected at deploy time)
+- `.env.example` — environment template (Vertex AI by default)
+- `DEPLOYMENT.md` — full, verified deploy steps
+- `SUBMISSION.md` — Project Pioneer submission summary
+- `BLOG.md` — write-up of the build and the bugs fixed along the way
 
-## Run locally with cloud-backed tools
-
-Create `.env` from `.env.example`:
+## Quickstart (cloud-backed)
 
 ```bash
-cp .env.example .env
-```
-
-Fill:
-
-```bash
-GOOGLE_API_KEY=...
-MCP_TOOLBOX_SERVER_URL=https://your-toolbox-service.run.app
-PROJECT_ID=eastern-map-498917-i6
-GOOGLE_CLOUD_LOCATION=us-east1
-MODEL=gemini-2.5-flash
-```
-
-Install and run:
-
-```bash
+cp .env.example .env          # Vertex AI defaults; no API key needed
+# Deploy the Toolbox (see DEPLOYMENT.md), then in one terminal:
+gcloud run services proxy toolbox --region=us-east1 --port=5000
+# In another:
 pip install -r requirements.txt
-python app.py
-```
-
-Open `http://localhost:8080`.
-
-## Run local CSV fallback
-
-```bash
-pip install -r requirements.txt
-python app-nobill.py
+python app.py                 # http://localhost:8080
 ```
 
 ## Demo prompts
 
 ```text
-Does Midnight Swirl have any allergens?
-Order 2 Midnight Swirl for Alice.
-Does Radiant Dragonfruit Halo have any allergens?
+Does Pure Hazelnut Halo have any allergens?     # -> Soy, Tree Nuts (BigQuery)
+Order 2 Pure Hazelnut Halo for Alice.            # -> order id (AlloyDB)
+Does Midnight Swirl have any allergens?          # -> none (handles negatives)
 ```
