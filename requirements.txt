@@ -7,3 +7,4 @@ toolbox-langchain
 python-dotenv
 vertexai>=1.71.0
 pandas
+google-cloud-aiplatform[evaluation]
