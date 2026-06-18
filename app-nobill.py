@@ -13,8 +13,8 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types as genai_types
 
 load_dotenv()
-PROJECT_ID = os.getenv("PROJECT_ID", "your-project-id")
-GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+PROJECT_ID = os.getenv("PROJECT_ID", "eastern-map-498917-i6")
+GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-east1")
 APP_NAME = "FroyoAgentOS"
 USER = "default_user"
 MODEL = os.getenv("MODEL", "gemini-2.5-flash")

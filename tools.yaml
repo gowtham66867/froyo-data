@@ -2,13 +2,13 @@
 sources:
     alloydb-source:
         kind: "alloydb-postgres"
-        project: "*************"
-        region: "us-central1"
-        cluster: "my-alloydb-cluster"
-        instance: "my-primary-inst"
+        project: "eastern-map-498917-i6"
+        region: "us-east1"
+        cluster: "froyo-cluster"
+        instance: "froyo-instance"
         database: "postgres"
         user: "postgres"
-        password: "*************"
+        password: "REPLACE_WITH_ALLOYDB_PASSWORD"
         ipType: "private"
 
 tools:

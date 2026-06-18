@@ -12,7 +12,7 @@ TOOLBOX_URL = os.getenv("MCP_TOOLBOX_SERVER_URL")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Initialize Vertex AI
-vertexai.init(project=PROJECT_ID, location="us-central1")
+vertexai.init(project=PROJECT_ID, location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-east1"))
 
 # ==========================================
 # FETCH LIVE CONTEXT
